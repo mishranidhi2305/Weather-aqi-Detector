@@ -1,0 +1,45 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "weather-aqi.fullname" . }}-aqi
+  labels:
+    {{- include "weather-aqi.labels" . | nindent 4 }}
+    app.kubernetes.io/component: aqi
+spec:
+  replicas: {{ .Values.aqiService.replicas }}
+  selector:
+    matchLabels:
+      {{- include "weather-aqi.selectorLabels" (merge (dict "component" "aqi") .) | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "weather-aqi.selectorLabels" (merge (dict "component" "aqi") .) | nindent 8 }}
+    spec:
+      serviceAccountName: {{ if .Values.serviceAccount.create }}{{ include "weather-aqi.fullname" . }}-aqi{{ else }}default{{ end }}
+      containers:
+        - name: aqi-service
+          image: "{{ .Values.aqiService.image.repository }}:{{ .Values.aqiService.image.tag }}"
+          imagePullPolicy: {{ .Values.aqiService.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.env.aqiService.port }}
+              protocol: TCP
+          env:
+            - name: PORT
+              value: {{ .Values.env.aqiService.port | quote }}
+            - name: NODE_ENV
+              value: {{ .Values.env.nodeEnv | quote }}
+          resources:
+            {{- toYaml .Values.aqiService.resources | nindent 12 }}
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 15
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 10

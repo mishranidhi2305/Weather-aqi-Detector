@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "weather-aqi.fullname" . }}-aqi
+  labels:
+    {{- include "weather-aqi.labels" . | nindent 4 }}
+    app.kubernetes.io/component: aqi
+spec:
+  type: ClusterIP
+  ports:
+    - port: {{ .Values.env.aqiService.port }}
+      targetPort: http
+      protocol: TCP
+      name: http
+  selector:
+    {{- include "weather-aqi.selectorLabels" (merge (dict "component" "aqi") .) | nindent 4 }}

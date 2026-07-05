@@ -1,0 +1,90 @@
+# ============================================================
+# deployment.values.yaml
+# Deployment-specific configuration: images, replicas, resources,
+# ingress, and service account creation.
+#
+# Usage:
+#   helm install weather-dashboard ./helm/weather-aqi-dashboard \
+#     -f helm/weather-aqi-dashboard/deployment.values.yaml \
+#     -f helm/weather-aqi-dashboard/env.values.yaml
+# ============================================================
+
+# --- Frontend (React + Nginx) ---
+# Service is ClusterIP because all external traffic enters via Ingress → Nginx IC
+frontend:
+  replicas: 2
+  image:
+    repository: weather-aqi-dashboard/frontend
+    tag: latest
+    pullPolicy: IfNotPresent
+  service:
+    type: ClusterIP   # NLB → Nginx IC → Ingress → this service
+    port: 80
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 250m
+      memory: 256Mi
+
+# --- Weather Service ---
+weatherService:
+  replicas: 2
+  image:
+    repository: weather-aqi-dashboard/weather-service
+    tag: latest
+    pullPolicy: IfNotPresent
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 250m
+      memory: 256Mi
+
+# --- AQI Service ---
+aqiService:
+  replicas: 2
+  image:
+    repository: weather-aqi-dashboard/aqi-service
+    tag: latest
+    pullPolicy: IfNotPresent
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 250m
+      memory: 256Mi
+
+# ---------------------------------------------------------------
+# Ingress
+# Assumes nginx-ingress-controller is already installed in the
+# cluster. The controller's own Service (type: LoadBalancer)
+# provisions the NLB on AWS.
+# ---------------------------------------------------------------
+ingress:
+  enabled: true
+  className: nginx
+  host: weather-dashboard.example.com   # replace with your domain / ALB DNS name
+  annotations: {}
+  # Example TLS (cert-manager):
+  # tls:
+  #   - hosts:
+  #       - weather-dashboard.example.com
+  #     secretName: weather-dashboard-tls
+
+# ---------------------------------------------------------------
+# Service Accounts (IRSA)
+# One service account per workload for least-privilege IAM access.
+# IAM role ARNs are set in env.values.yaml (they differ per env).
+# ---------------------------------------------------------------
+serviceAccount:
+  create: true
+  weatherService:
+    iamRoleArn: ""   # overridden in env.values.yaml
+  aqiService:
+    iamRoleArn: ""   # overridden in env.values.yaml
+  frontend:
+    iamRoleArn: ""   # overridden in env.values.yaml
