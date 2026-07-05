@@ -1,74 +1,56 @@
 # Weather & AQI Dashboard - 3-Tier Microservice Architecture
 
-A full-stack application that takes a user's name and city, then displays real-time weather data and Air Quality Index (AQI) information.
+A full-stack application that takes a user's name and city, then displays real-time weather data and Air Quality Index (AQI) information. Uses the free Open-Meteo API — no API key required.
 
 ## Architecture
 
 ```
 ┌─────────────────────────────────────────────────────┐
 │              TIER 1 - PRESENTATION                  │
-│         React Frontend (Port 3003)                  │
+│     React Frontend + Nginx Reverse Proxy            │
+│     (Port 80 Docker / Port 3000 local dev)          │
 │    User Form → Weather / AQI / Forecast Cards       │
-└──────────────────────┬──────────────────────────────┘
-                       │ HTTP
-┌──────────────────────▼──────────────────────────────┐
-│              TIER 2 - APPLICATION                   │
-│         API Gateway (Port 3000)                     │
-│   Rate Limiting · Input Validation · Orchestration  │
 └────────┬────────────────────────────────┬───────────┘
-         │ HTTP                           │ HTTP
+         │ /api/weather/*                 │ /api/aqi/*
+         │ (nginx proxy_pass)             │ (nginx proxy_pass)
 ┌────────▼──────────┐        ┌────────────▼───────────┐
-│  TIER 3 - SERVICE │        │   TIER 3 - SERVICE     │
+│  TIER 2 - SERVICE │        │   TIER 2 - SERVICE     │
 │  Weather Service  │        │     AQI Service        │
 │   (Port 3001)     │        │    (Port 3002)         │
 │  Current Weather  │        │  Air Quality Index     │
-│  Today's Forecast │        │  Pollutant Breakdown   │
-│  5-Day Outlook    │        │                        │
+│  Today's Forecast │        │  European AQI Scale    │
+│  7-Day Outlook    │        │  Pollutant Breakdown   │
 └───────────────────┘        └────────────────────────┘
          │                            │
          └──────────┬─────────────────┘
-                    │
+                    │ HTTP
          ┌──────────▼──────────┐
-         │  OpenWeatherMap API │
-         │   (External)        │
+         │    Open-Meteo API   │
+         │  (Free, no API key) │
          └─────────────────────┘
 ```
 
 ## Features
 
 - **User Input**: Enter your name and city
-- **Current Weather**: Temperature, humidity, wind, pressure, sunrise/sunset
+- **Current Weather**: Temperature, humidity, wind speed, pressure
 - **Today's Weather**: Hourly forecast for the rest of today
-- **Looking Ahead**: 5-day daily forecast
-- **Air Quality Index**: AQI level with color coding (Good → Very Poor)
-- **Pollutant Breakdown**: CO, NO, NO₂, O₃, SO₂, PM2.5, PM10, NH₃
+- **Looking Ahead**: 7-day daily forecast with min/max temps
+- **Air Quality Index**: European AQI scale with color coding (Good → Extremely Poor)
+- **Pollutant Breakdown**: PM2.5, PM10, NO₂, O₃, SO₂, CO concentrations
 
 ## Prerequisites
 
 - **Node.js** v16+ and npm
-- **OpenWeatherMap API Key** (free tier works): [Get one here](https://openweathermap.org/api)
+- **Docker & Docker Compose** (for containerized deployment)
+
+No API key is required — the app uses the free [Open-Meteo API](https://open-meteo.com/).
 
 ## Quick Start (Local Development)
 
-### 1. Get your API Key
+### 1. Install Dependencies & Start Services
 
-Sign up at [openweathermap.org](https://openweathermap.org/api) and get a free API key.
-
-### 2. Configure Environment
-
-Set your API key in both service `.env` files:
-
-```bash
-# services/weather-service/.env
-OPENWEATHER_API_KEY=your_api_key_here
-
-# services/aqi-service/.env
-OPENWEATHER_API_KEY=your_api_key_here
-```
-
-### 3. Install Dependencies & Start Services
-
-Open 4 terminals and run:
+Open 3 terminals and run:
 
 **Terminal 1 - Weather Service:**
 ```bash
@@ -84,48 +66,34 @@ npm install
 npm start
 ```
 
-**Terminal 3 - API Gateway:**
-```bash
-cd api-gateway
-npm install
-npm start
-```
-
-**Terminal 4 - Frontend:**
+**Terminal 3 - Frontend:**
 ```bash
 cd frontend
 npm install
 npm start
 ```
 
-### 4. Open the App
+### 2. Open the App
 
-Navigate to **http://localhost:3003** in your browser.
+Navigate to **http://localhost:3000** in your browser.
 
 ## Docker Deployment
 
 ```bash
-# Set your API key
-export OPENWEATHER_API_KEY=your_api_key_here
-
 # Build and run all services
 docker-compose up --build
 ```
 
-Open **http://localhost:3003** in your browser.
+Open **http://localhost** (port 80) in your browser.
+
+The Nginx reverse proxy in the frontend container routes `/api/weather/*` and `/api/aqi/*` requests to the respective backend services.
 
 ## API Endpoints
-
-### API Gateway (Port 3000)
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/api/dashboard/:city` | Combined weather + AQI data |
-| GET | `/health` | Service health check |
 
 ### Weather Service (Port 3001)
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| GET | `/api/weather/:city` | Current weather + forecast |
+| GET | `/api/weather/:city` | Current weather + 7-day forecast |
 | GET | `/health` | Service health check |
 
 ### AQI Service (Port 3002)
@@ -137,7 +105,7 @@ Open **http://localhost:3003** in your browser.
 ## Tech Stack
 
 - **Frontend**: React 18, Axios, CSS3 (Glassmorphism UI)
-- **API Gateway**: Express.js, express-rate-limit
+- **Reverse Proxy**: Nginx (routes API calls to backend services)
 - **Microservices**: Express.js, Axios
-- **External API**: OpenWeatherMap (Weather, Forecast, Air Pollution)
+- **External API**: Open-Meteo (Weather, Forecast, Air Quality — free, no key)
 - **Containerization**: Docker, Docker Compose
