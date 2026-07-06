@@ -98,7 +98,11 @@ Before deploying, make sure you have:
 - **NGINX Ingress Controller** installed on the cluster (via Helm repo)
   ```bash
   helm repo add ingress-nginx https://kubernetes.github.io/ingress-nginx
+<<<<<<< HEAD
   helm install aqi-nginx ingress-nginx/ingress-nginx \
+=======
+ helm install aqi-nginx ingress-nginx/ingress-nginx \
+>>>>>>> f572443130a90b5db6ac3b5f45fbb0095db76c9e
   --namespace nginx-ingress \
   --create-namespace \
   --set controller.service.type=LoadBalancer \
@@ -274,4 +278,8 @@ kubectl logs <pod-name> -n default # debug a specific pod
 - **OIDC over static AWS keys** — short-lived credentials, no secrets to rotate or leak.
 - **Two-layer auth model** — AWS IAM controls API-level access; Kubernetes RBAC (`aws-auth`) controls in-cluster access. Both must be kept in sync.
 - **NLB + NGINX Ingress** — a single, stable Layer 4 load balancer in front of an Ingress Controller that handles Layer 7 routing (host/path rules), rather than provisioning a separate load balancer per service.
+<<<<<<< HEAD
 - **Helm for deployments** — templated, versioned, repeatable releases instead of raw `kubectl apply`.
+=======
+- **Helm for deployments** — templated, versioned, repeatable releases instead of raw `kubectl apply`.
+>>>>>>> f572443130a90b5db6ac3b5f45fbb0095db76c9e
