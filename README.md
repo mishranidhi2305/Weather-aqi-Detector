@@ -96,7 +96,6 @@ The NLB is the only entry point for traffic from the internet (Layer 4 — just 
 │       ├── deployment.values.yaml
 │       ├── env.values.yaml
 │       └── templates/          # K8s manifests (deployments, services, ingress, etc.)
-├── docker-compose.yml          # Local development (without Kubernetes)
 └── README.md
 ```
 
