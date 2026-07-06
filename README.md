@@ -98,7 +98,14 @@ Before deploying, make sure you have:
 - **NGINX Ingress Controller** installed on the cluster (via Helm repo)
   ```bash
   helm repo add ingress-nginx https://kubernetes.github.io/ingress-nginx
-  helm install ingress-nginx ingress-nginx/ingress-nginx -n ingress-nginx --create-namespace
+  helm install aqi-nginx ingress-nginx/ingress-nginx \
+  --namespace nginx-ingress \
+  --create-namespace \
+  --set controller.service.type=LoadBalancer \
+  --set controller.service.externalTrafficPolicy=Cluster \
+  --set controller.service.annotations."service\.beta\.kubernetes\.io/aws-load-balancer-type"="nlb" \
+  --set controller.service.annotations."service\.beta\.kubernetes\.io/aws-load-balancer-backend-protocol"="tcp" \
+  --set controller.service.annotations."service\.beta\.kubernetes\.io/aws-load-balancer-cross-zone-load-balancing-enabled"="true"
   ```
   This provisions an **AWS Network Load Balancer (NLB)** automatically, which becomes the single entry point for all external traffic into the cluster.
 
