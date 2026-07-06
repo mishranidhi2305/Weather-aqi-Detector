@@ -333,7 +333,7 @@ ingress:
 
 ---
 
-## 7. Verifying the deployment manually
+Verifying the deployment manually
 
 ```bash
 kubectl get pods -n default        # all pods should show Running and 1/1 ready
@@ -344,32 +344,32 @@ kubectl logs <pod-name> -n default # inspect logs for a specific pod
 
 ---
 
-## 8. Key design decisions
+🎯 Key Engineering Highlights
 
-- **OIDC instead of static AWS keys** — short-lived credentials requested per workflow run, nothing to leak or rotate.
-- **Two separate authorization layers for EKS** — AWS IAM controls whether a role can call the EKS API at all; Kubernetes RBAC (`aws-auth`) controls whether that same role can manage resources inside the cluster. Both need to be configured, and both need to agree on the exact same role ARN.
-- **NLB + NGINX Ingress, not one load balancer per service** — a single Layer 4 load balancer handles all incoming traffic, and the Ingress Controller does Layer 7 routing behind it, which is cheaper and easier to manage than provisioning a separate load balancer for every service.
-- **Helm over raw `kubectl apply`** — deployments are templated, versioned, and repeatable, and a bad release can be rolled back with `helm rollback`.
-- **A post-deploy health check (`kubectl rollout status`)** — makes sure the pipeline fails loudly if the new pods don't come up healthy, instead of reporting success on a broken deployment.
 
+✅ Zero long-lived cloud credentials anywhere in the pipeline (OIDC-based auth)
+✅ Clear separation of L4 (NLB) and L7 (NGINX Ingress) routing responsibilities
+✅ Public/private subnet isolation for defense-in-depth network security
+✅ Explicit dual-layer authorization (IAM + Kubernetes RBAC)
+✅ Fully templated, versioned deployments via Helm — no manual kubectl apply
+✅ Immutable, commit-SHA-tagged Docker images for traceable rollbacks
+✅ Cluster infrastructure reproducible via a single eksctl command
 ---
 
-## 9. Future improvements and production readiness
+🔮 Possible Future Improvements
 
-This setup is functional and demonstrates a complete, working CI/CD-to-Kubernetes pipeline, but a few areas would need to be addressed before this qualifies as production-grade infrastructure:
 
-| Area | Current state | Recommended improvement | Why it matters |
-|---|---|---|---|
-| **Container registry** | Docker Hub | Migrate to **Amazon ECR** | ECR integrates natively with IAM (no separate registry credentials needed), keeps images in the same account/region as the cluster, supports private repositories by default, and avoids Docker Hub's public rate limits |
-| **Infrastructure provisioning** | Manual `eksctl` command + console steps | Manage via **Terraform** or **AWS CDK** | Infrastructure becomes version-controlled, reviewable, and repeatable across environments, instead of depending on commands run once from someone's terminal |
-| **Deployment model** | Push-based (GitHub Actions runs `helm upgrade` directly) | Adopt a **GitOps** model with ArgoCD or Flux | The cluster's actual state is continuously reconciled against a Git repository as the single source of truth, with drift detection and easier rollbacks |
-| **Secrets management** | Plaintext values in GitHub Secrets | Use **AWS Secrets Manager** or **External Secrets Operator** | Centralizes secret rotation and auditing, and removes the need to duplicate credentials across GitHub and application config |
-| **TLS/HTTPS** | Not configured | Add **cert-manager** with Let's Encrypt, terminated at the Ingress | Traffic between users and the load balancer should be encrypted before this goes anywhere near real users |
-| **Environments** | Single environment (`default` namespace, one release) | Separate **staging** and **production** namespaces/clusters with environment-specific values files | Prevents untested changes from reaching production, and matches how most real engineering teams gate releases |
-| **Access control (RBAC)** | GitHub Actions role mapped to `system:masters` (full cluster admin) | Scope down to a **custom Role/ClusterRole** with only the permissions Helm needs | Follows least-privilege — a compromised or misconfigured pipeline shouldn't have unrestricted cluster access |
-| **Autoscaling** | Fixed node count and pod replicas | Enable **Horizontal Pod Autoscaler** and **Cluster Autoscaler** (or Karpenter) | Automatically handles traffic spikes and reduces cost during low-usage periods |
-| **Observability** | Manual `kubectl` checks | Add **Prometheus + Grafana** or **CloudWatch Container Insights**, plus centralized logging | Issues need to be visible through dashboards and alerts, not discovered by manually running commands after something breaks |
-| **Image security** | No scanning | Enable **ECR image scanning** (or Trivy in CI) before deployment | Catches known vulnerabilities in base images before they reach the cluster |
-| **Deployment strategy** | Rolling update (Helm default) | Introduce **blue-green or canary deployments** | Reduces blast radius of a bad release by shifting traffic gradually instead of all at once |
+Migrate image registry from Docker Hub to Amazon ECR — native IAM integration, private by default, no public rate limits, same account/region as the cluster
+Migrate from the in-tree Cloud Controller Manager to the AWS Load Balancer Controller, for IP-mode target groups and ALB support
+Add IRSA (IAM Roles for Service Accounts) for pod-level AWS access, if services need direct AWS API calls
+Introduce ArgoCD for GitOps-based continuous delivery instead of the current push-based deploy
+Add HPA (Horizontal Pod Autoscaler) and Cluster Autoscaler / Karpenter for traffic-based scaling
+Provision infrastructure via Terraform instead of a manually run eksctl command
+Add cert-manager for automatic TLS at the Ingress layer
+Scope the GitHub Actions role's Kubernetes RBAC binding down from system:masters to a least-privilege custom role
 
-None of these are required for the current pipeline to function correctly — the existing setup is a solid, working foundation. These represent the natural next steps to take it from "functional" to "production-hardened."
+
+
+📄 License
+
+This project is open source and available for reference/educational purposes.
