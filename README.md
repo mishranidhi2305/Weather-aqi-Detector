@@ -6,7 +6,7 @@ This document explains the project in the order it was actually built — what w
 
 ---
 
-## 1. What this project does
+What this project does
 
 The app has three parts:
 
@@ -18,70 +18,50 @@ Each part is its own Docker container, its own Kubernetes deployment, and gets b
 
 ---
 
-## 2. Tech stack
+🔧 Tech Stack
 
-| Layer | Technology | Why it's used |
-|---|---|---|
-| Frontend | React app, containerized | Simple to package and deploy the same way as the backend services |
-| Backend | Weather service, AQI service | Kept as separate microservices so each can scale or fail independently |
-| Container registry | Docker Hub | Public, free, simple to integrate with GitHub Actions |
-| Orchestration | Amazon EKS | Managed Kubernetes, so we don't run our own control plane |
-| Package manager | Helm | Lets us template and version the whole set of Kubernetes manifests as one release, instead of applying raw YAML files by hand |
-| Ingress | NGINX Ingress Controller | Routes external traffic to the right service based on hostname/path |
-| Load balancer | AWS Network Load Balancer (NLB) | Created automatically by the ingress controller; it's the single entry point from the internet into the cluster |
-| CI/CD | GitHub Actions | Automates build, push, and deploy on every push to `main` |
-| Cloud authentication | AWS IAM Role + OIDC | GitHub Actions authenticates to AWS without storing any long-lived AWS access keys |
+LayerTechnologyFrontendReactBackendWeather Service, AQI Service (independent microservices)ContainerizationDockerImage RegistryDocker HubOrchestrationKubernetes (Amazon EKS)Cluster provisioningeksctlPackage ManagementHelmIngress / L7 RoutingNGINX Ingress ControllerLoad BalancingAWS Network Load Balancer (in-tree AWS Cloud Controller Manager)CI/CDGitHub ActionsCloud AuthOpenID Connect (OIDC) — no static AWS credentialsCluster AuthIAM ↔ Kubernetes RBAC (aws-auth ConfigMap)
 
 ---
 
-## 3. Architecture
+🏗️ Architecture Overview
 
-**CI/CD flow — what happens on every push to `main`**
+                         Internet
+                             │
+                             ▼
+              ┌──────────────────────────┐
+              │   AWS Network Load       │
+              │   Balancer (Internet-    │   ← Public Subnet
+              │   facing, Layer 4)       │
+              └────────────┬─────────────┘
+                            │
+                            ▼
+              ┌──────────────────────────┐
+              │   NodePort Service       │
+              │   (kube-proxy routing)   │
+              └────────────┬─────────────┘
+                            │
+                            ▼
+              ┌──────────────────────────┐
+              │  NGINX Ingress Controller│
+              │  (Layer 7 — host/path    │
+              │   based routing)         │
+              └────────────┬─────────────┘
+                            │
+              ┌─────────────┼─────────────┐
+              ▼             ▼             ▼
+        ┌──────────┐  ┌──────────┐  ┌──────────┐
+        │ Frontend │  │ Weather  │  │   AQI    │
+        │  Service │  │ Service  │  │ Service  │
+        └──────────┘  └──────────┘  └──────────┘
+                                          │
+                    EKS Worker Nodes (Private Subnet)
 
-```mermaid
-%%{init: {'theme': 'base'}}%%
-flowchart LR
-    A["Developer<br/>git push main"] --> B["GitHub Actions<br/>triggered"]
-    B --> C["Build & push<br/>Docker images"]
-    C --> D["Assume AWS IAM<br/>role via OIDC"]
-    D --> E["helm upgrade --install<br/>on EKS"]
-
-    classDef dev fill:#E6F1FB,stroke:#185FA5,color:#0C447C,stroke-width:1px
-    classDef build fill:#E1F5EE,stroke:#0F6E56,color:#085041,stroke-width:1px
-    classDef auth fill:#FAEEDA,stroke:#854F0B,color:#633806,stroke-width:1px
-    classDef deploy fill:#EEEDFE,stroke:#534AB7,color:#3C3489,stroke-width:1px
-
-    class A,B dev
-    class C build
-    class D auth
-    class E deploy
-```
-
-**Runtime traffic flow — how a user reaches the app**
-
-```mermaid
-%%{init: {'theme': 'base'}}%%
-flowchart LR
-    A["Browser"] --> B["DNS / hosts<br/>file lookup"]
-    B --> C["AWS Network<br/>Load Balancer"]
-    C --> D["NGINX Ingress<br/>Controller (L7)"]
-    D --> E["Kubernetes<br/>Service"]
-    E --> F["Pod<br/>(App container)"]
-
-    classDef user fill:#FBEAF0,stroke:#993556,color:#72243E,stroke-width:1px
-    classDef infra fill:#E6F1FB,stroke:#185FA5,color:#0C447C,stroke-width:1px
-    classDef k8s fill:#E1F5EE,stroke:#0F6E56,color:#085041,stroke-width:1px
-
-    class A,B user
-    class C,D infra
-    class E,F k8s
-```
-
-The NLB is the only entry point for traffic from the internet (Layer 4 — just forwards packets). The NGINX Ingress Controller sits behind it and does the actual routing decision (Layer 7 — looks at the request's hostname and path to decide which Kubernetes Service it should go to: frontend, weather-service, or aqi-service).
+Network design: worker nodes and pods run in private subnets with no direct internet exposure. Only the NLB sits in the public subnet, acting as the sole internet-facing entry point — a standard AWS security pattern that minimizes attack surface.
 
 ---
 
-## 4. Infrastructure components
+Infrastructure components
 
 | Component | Role in the architecture |
 |---|---|
@@ -96,7 +76,7 @@ The NLB is the only entry point for traffic from the internet (Layer 4 — just 
 
 ---
 
-## 5. Repository structure
+Repository structure
 
 ```
 3-TIER/
@@ -111,13 +91,12 @@ The NLB is the only entry point for traffic from the internet (Layer 4 — just 
 │       ├── deployment.values.yaml
 │       ├── env.values.yaml
 │       └── templates/          # K8s manifests (deployments, services, ingress, etc.)
-├── docker-compose.yml          # Local development (without Kubernetes)
 └── README.md
 ```
 
 ---
 
-## 6. How this was built — step by step
+How this was built — step by step
 
 ### Step 1: Package each service as its own container
 
