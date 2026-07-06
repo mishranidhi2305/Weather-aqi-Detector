@@ -107,11 +107,11 @@ jobs:
 
       - name: Deploy with Helm
         run: |
-          helm upgrade --install ${{ env.HELM_RELEASE_NAME }} ./helm/weather-aqi-dashboard \
+          helm upgrade --install ${{ env.HELM_RELEASE_NAME }} ./helm/aqi-weather \
             --namespace ${{ env.HELM_NAMESPACE }} \
             --create-namespace \
-            -f helm/weather-aqi-dashboard/deployment.values.yaml \
-            -f helm/weather-aqi-dashboard/env.values.yaml \
+            -f helm/aqi-weather/deployment.values.yaml \
+            -f helm/aqi-weather/env.values.yaml \
             --set frontend.image.repository=${{ secrets.DOCKERHUB_USERNAME }}/weather-aqi-frontend \
             --set frontend.image.tag=${{ env.IMAGE_TAG }} \
             --set frontend.image.pullPolicy=Always \
